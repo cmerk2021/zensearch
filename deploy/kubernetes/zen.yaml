@@ -1,0 +1,274 @@
+# Zen on Kubernetes — single-file manifest for homelab clusters (k3s, microk8s).
+# Review and adjust storage classes, hosts, and resource limits for your cluster.
+# Create the secret first:
+#   kubectl create namespace zen
+#   kubectl -n zen create secret generic zen-secrets \
+#     --from-literal=ZEN_SECRET_KEY="$(openssl rand -base64 48)" \
+#     --from-literal=POSTGRES_PASSWORD="$(openssl rand -base64 24)"
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zen
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zen-data
+  namespace: zen
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zen-postgres
+  namespace: zen
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: zen
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres }
+  strategy: { type: Recreate }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_DB
+              value: zen
+            - name: POSTGRES_USER
+              value: zen
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: zen-secrets, key: POSTGRES_PASSWORD }
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "zen"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: zen-postgres }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: zen
+spec:
+  selector: { app: postgres }
+  ports:
+    - port: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: zen
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: redis }
+  template:
+    metadata:
+      labels: { app: redis }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 192Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: zen
+spec:
+  selector: { app: redis }
+  ports:
+    - port: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zen-server
+  namespace: zen
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: zen-server }
+  template:
+    metadata:
+      labels: { app: zen-server }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      initContainers:
+        - name: migrate
+          image: ghcr.io/zensearch/zen-server:latest
+          command: ["zen", "db", "upgrade"]
+          envFrom:
+            - configMapRef: { name: zen-config }
+          env:
+            - name: ZEN_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: zen-secrets, key: ZEN_SECRET_KEY }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: zen-secrets, key: POSTGRES_PASSWORD }
+            - name: ZEN_DATABASE_URL
+              value: postgresql+asyncpg://zen:$(POSTGRES_PASSWORD)@postgres:5432/zen
+      containers:
+        - name: zen-server
+          image: ghcr.io/zensearch/zen-server:latest
+          envFrom:
+            - configMapRef: { name: zen-config }
+          env:
+            - name: ZEN_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: zen-secrets, key: ZEN_SECRET_KEY }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: zen-secrets, key: POSTGRES_PASSWORD }
+            - name: ZEN_DATABASE_URL
+              value: postgresql+asyncpg://zen:$(POSTGRES_PASSWORD)@postgres:5432/zen
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet: { path: /api/v1/health, port: 8000 }
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          readinessProbe:
+            httpGet: { path: /api/v1/health/ready, port: 8000 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { memory: 768Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: zen-data }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zen-config
+  namespace: zen
+data:
+  ZEN_REDIS_URL: redis://redis:6379/0
+  ZEN_LOG_FORMAT: json
+  ZEN_BASE_URL: "https://zen.example.com"
+  ZEN_TRUSTED_PROXIES: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zen-server
+  namespace: zen
+spec:
+  selector: { app: zen-server }
+  ports:
+    - port: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zen-web
+  namespace: zen
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: zen-web }
+  template:
+    metadata:
+      labels: { app: zen-web }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: zen-web
+          image: ghcr.io/zensearch/zen-web:latest
+          env:
+            - name: ZEN_BACKEND_URL
+              value: http://zen-server:8000
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            httpGet: { path: /login, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 384Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zen-web
+  namespace: zen
+spec:
+  selector: { app: zen-web }
+  ports:
+    - port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zen
+  namespace: zen
+  annotations:
+    # cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  rules:
+    - host: zen.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: zen-web
+                port: { number: 3000 }
+  # tls:
+  #   - hosts: [zen.example.com]
+  #     secretName: zen-tls

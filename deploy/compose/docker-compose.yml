@@ -1,0 +1,100 @@
+# Zen — recommended production deployment (PostgreSQL + Redis).
+#
+#   1. Copy .env.example to .env; set ZEN_SECRET_KEY and POSTGRES_PASSWORD.
+#   2. docker compose up -d
+#   3. Open http://localhost:3000 and complete first-run setup.
+#
+# Put a reverse proxy (Traefik/Caddy/Nginx) in front for HTTPS — examples in
+# deploy/reverse-proxy/.
+
+name: zen
+
+services:
+  zen-server:
+    image: ghcr.io/zensearch/zen-server:latest
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+    restart: unless-stopped
+    environment:
+      ZEN_SECRET_KEY: ${ZEN_SECRET_KEY:?Set ZEN_SECRET_KEY in .env}
+      ZEN_BASE_URL: ${ZEN_BASE_URL:-}
+      ZEN_DATABASE_URL: postgresql+asyncpg://zen:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/zen
+      ZEN_REDIS_URL: redis://redis:6379/0
+      ZEN_LOG_FORMAT: json
+      ZEN_TRUSTED_PROXIES: ${ZEN_TRUSTED_PROXIES:-}
+    volumes:
+      - zen-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [zen]
+
+  zen-migrate:
+    image: ghcr.io/zensearch/zen-server:latest
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+    command: ["zen", "db", "upgrade"]
+    environment:
+      ZEN_SECRET_KEY: ${ZEN_SECRET_KEY}
+      ZEN_DATABASE_URL: postgresql+asyncpg://zen:${POSTGRES_PASSWORD}@postgres:5432/zen
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [zen]
+
+  zen-web:
+    image: ghcr.io/zensearch/zen-web:latest
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.frontend
+    restart: unless-stopped
+    environment:
+      ZEN_BACKEND_URL: http://zen-server:8000
+    ports:
+      - "${ZEN_HTTP_PORT:-3000}:3000"
+    depends_on:
+      zen-server:
+        condition: service_healthy
+    networks: [zen]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: zen
+      POSTGRES_USER: zen
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zen -d zen"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [zen]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [zen]
+
+volumes:
+  zen-data:
+  postgres-data:
+  redis-data:
+
+networks:
+  zen:

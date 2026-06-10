@@ -1,0 +1,44 @@
+# Zen — minimal deployment (SQLite, in-memory cache).
+# Perfect for evaluation and small single-user instances on a Pi or mini PC.
+#
+#   1. Copy .env.example to .env and set ZEN_SECRET_KEY.
+#   2. docker compose up -d
+#   3. Open http://localhost:3000 and complete first-run setup.
+
+name: zen
+
+services:
+  zen-server:
+    image: ghcr.io/zensearch/zen-server:latest
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+    restart: unless-stopped
+    environment:
+      ZEN_SECRET_KEY: ${ZEN_SECRET_KEY:?Set ZEN_SECRET_KEY in .env}
+      ZEN_BASE_URL: ${ZEN_BASE_URL:-}
+      ZEN_LOG_FORMAT: json
+    volumes:
+      - zen-data:/data
+    networks: [zen]
+
+  zen-web:
+    image: ghcr.io/zensearch/zen-web:latest
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.frontend
+    restart: unless-stopped
+    environment:
+      ZEN_BACKEND_URL: http://zen-server:8000
+    ports:
+      - "${ZEN_HTTP_PORT:-3000}:3000"
+    depends_on:
+      zen-server:
+        condition: service_healthy
+    networks: [zen]
+
+volumes:
+  zen-data:
+
+networks:
+  zen:

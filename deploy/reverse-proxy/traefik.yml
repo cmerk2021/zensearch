@@ -1,0 +1,39 @@
+# Traefik (v3) dynamic configuration for Zen.
+# Attach these labels to the zen-web service in docker-compose:
+#
+#   services:
+#     zen-web:
+#       labels:
+#         - traefik.enable=true
+#         - traefik.http.routers.zen.rule=Host(`zen.example.com`)
+#         - traefik.http.routers.zen.entrypoints=websecure
+#         - traefik.http.routers.zen.tls.certresolver=letsencrypt
+#         - traefik.http.services.zen.loadbalancer.server.port=3000
+#         - traefik.http.middlewares.zen-body.buffering.maxRequestBodyBytes=67108864
+#         - traefik.http.routers.zen.middlewares=zen-body
+#
+# File-provider equivalent:
+
+http:
+  routers:
+    zen:
+      rule: "Host(`zen.example.com`)"
+      entryPoints: [websecure]
+      service: zen
+      tls:
+        certResolver: letsencrypt
+      middlewares: [zen-body]
+
+  middlewares:
+    zen-body:
+      buffering:
+        maxRequestBodyBytes: 67108864   # 64MB plugin uploads
+
+  services:
+    zen:
+      loadBalancer:
+        servers:
+          - url: "http://zen-web:3000"
+
+# Set ZEN_TRUSTED_PROXIES to your Traefik container subnet (e.g. 172.18.0.0/16)
+# and ZEN_BASE_URL=https://zen.example.com.

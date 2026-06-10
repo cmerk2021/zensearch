@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1.7
+# Zen backend — multi-arch (amd64/arm64), non-root, slim runtime.
+
+FROM python:3.12-slim AS builder
+WORKDIR /build
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
+COPY backend/pyproject.toml backend/README.md ./
+COPY backend/zen ./zen
+RUN pip wheel --wheel-dir /wheels ".[postgres]"
+
+FROM python:3.12-slim AS runtime
+LABEL org.opencontainers.image.title="Zen Server" \
+      org.opencontainers.image.description="Self-hosted research and knowledge discovery platform" \
+      org.opencontainers.image.source="https://github.com/zensearch/zen" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
+
+RUN groupadd -r zen --gid 1000 && useradd -r -g zen --uid 1000 --home /app zen \
+    && apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache-dir --no-index --find-links /wheels zen-server[postgres] \
+    && rm -rf /wheels
+COPY backend/alembic.ini /app/alembic.ini
+COPY backend/alembic /app/alembic
+
+ENV ZEN_HOST=0.0.0.0 \
+    ZEN_PORT=8000 \
+    ZEN_DATA_DIR=/data \
+    ZEN_DATABASE_URL=sqlite+aiosqlite:////data/zen.db
+RUN mkdir -p /data && chown zen:zen /data
+VOLUME /data
+USER zen
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -fsS http://localhost:8000/api/v1/health || exit 1
+
+CMD ["zen", "serve"]

@@ -1,0 +1,67 @@
+"""All ORM models, re-exported for registration and convenient imports."""
+
+from zen.db.models.knowledge import (
+    Bookmark,
+    Collection,
+    CollectionItem,
+    Note,
+    NoteLink,
+    NoteRevision,
+    Tag,
+    Workspace,
+    WorkspaceStatus,
+    bookmark_tags,
+    note_tags,
+)
+from zen.db.models.search import (
+    ClickEvent,
+    DomainRule,
+    ProviderConfig,
+    RuleAction,
+    RuleScope,
+    SearchHistory,
+    SearchMode,
+)
+from zen.db.models.system import (
+    AuditLogEntry,
+    InstanceSetting,
+    Plugin,
+    PluginRepository,
+    PluginStatus,
+    RepositoryKind,
+    SearchProfile,
+)
+from zen.db.models.users import AuthSource, Role, User, UserPreferences, UserSession
+
+__all__ = [
+    "AuditLogEntry",
+    "AuthSource",
+    "Bookmark",
+    "ClickEvent",
+    "Collection",
+    "CollectionItem",
+    "DomainRule",
+    "InstanceSetting",
+    "Note",
+    "NoteLink",
+    "NoteRevision",
+    "Plugin",
+    "PluginRepository",
+    "PluginStatus",
+    "ProviderConfig",
+    "RepositoryKind",
+    "Role",
+    "RuleAction",
+    "RuleScope",
+    "SearchHistory",
+    "SearchMode",
+    "SearchProfile",
+    "Tag",
+    "User",
+    "UserPreferences",
+    "UserSession",
+    "Workspace",
+    "WorkspaceStatus",
+    "bookmark_tags",
+    "note_tags",
+]
