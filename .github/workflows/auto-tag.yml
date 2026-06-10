@@ -1,0 +1,70 @@
+name: Auto Tag
+
+# GitHub Desktop cannot push tags. This workflow watches main for version
+# bumps: when backend/zen/version.py declares a version with no matching tag,
+# it creates the tag and dispatches the Release workflow on it.
+#
+# The explicit dispatch is required because tags pushed with GITHUB_TOKEN do
+# not trigger `on: push: tags` workflows (GitHub recursion guard).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/zen/version.py
+      - frontend/package.json
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag:
+    name: Tag new version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read versions
+        id: versions
+        run: |
+          BACKEND=$(grep -oP '__version__ = "\K[^"]+' backend/zen/version.py)
+          FRONTEND=$(grep -oP '"version": "\K[^"]+' frontend/package.json | head -1)
+          echo "backend=$BACKEND" >> "$GITHUB_OUTPUT"
+          echo "frontend=$FRONTEND" >> "$GITHUB_OUTPUT"
+          echo "backend=$BACKEND frontend=$FRONTEND"
+
+      - name: Verify versions match
+        run: |
+          if [ "${{ steps.versions.outputs.backend }}" != "${{ steps.versions.outputs.frontend }}" ]; then
+            echo "::error::Version mismatch — backend/zen/version.py is ${{ steps.versions.outputs.backend }} but frontend/package.json is ${{ steps.versions.outputs.frontend }}. Bump both before release."
+            exit 1
+          fi
+
+      - name: Check whether tag exists
+        id: tag
+        run: |
+          TAG="v${{ steps.versions.outputs.backend }}"
+          echo "name=$TAG" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists — nothing to do."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag
+        if: steps.tag.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.tag.outputs.name }}" -m "Release ${{ steps.tag.outputs.name }}"
+          git push origin "${{ steps.tag.outputs.name }}"
+
+      - name: Dispatch release workflow
+        if: steps.tag.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --ref "${{ steps.tag.outputs.name }}"

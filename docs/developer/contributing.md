@@ -84,6 +84,11 @@ handle hard failures.
 
 1. Bump `backend/zen/version.py` and `frontend/package.json` to the same
    version; update `CHANGELOG.md`.
-2. Tag `vX.Y.Z` and push — the release workflow validates version
+2. Push to `main` (any client works — GitHub Desktop included). The
+   **Auto Tag** workflow detects the version bump, creates the `vX.Y.Z` tag,
+   and dispatches the **Release** workflow, which validates version
    consistency, runs tests, builds multi-arch images, and drafts the GitHub
    release with a generated changelog.
+
+Pushing a `vX.Y.Z` tag manually still works and triggers the same release
+pipeline directly.
