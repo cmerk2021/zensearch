@@ -19,13 +19,13 @@ LABEL org.opencontainers.image.title="Zen Web" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-RUN addgroup -S zen -g 1000 && adduser -S zen -u 1000 -G zen
+# node:alpine already provides the non-root 'node' user (uid/gid 1000).
 
-COPY --from=builder --chown=zen:zen /build/.next/standalone ./
-COPY --from=builder --chown=zen:zen /build/.next/static ./.next/static
-COPY --from=builder --chown=zen:zen /build/public ./public
+COPY --from=builder --chown=node:node /build/.next/standalone ./
+COPY --from=builder --chown=node:node /build/.next/static ./.next/static
+COPY --from=builder --chown=node:node /build/public ./public
 
-USER zen
+USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget -qO- http://localhost:3000/login >/dev/null 2>&1 || exit 1
