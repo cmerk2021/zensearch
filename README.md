@@ -56,8 +56,8 @@ Search is one feature. **Knowledge discovery is the product.**
 
 ```bash
 mkdir zen && cd zen
-curl -fsSLO https://raw.githubusercontent.com/zensearch/zen/main/deploy/compose/docker-compose.yml
-curl -fsSL  https://raw.githubusercontent.com/zensearch/zen/main/deploy/compose/.env.example -o .env
+curl -fsSLO https://raw.githubusercontent.com/cmerk2021/zensearch/main/deploy/compose/docker-compose.yml
+curl -fsSL  https://raw.githubusercontent.com/cmerk2021/zensearch/main/deploy/compose/.env.example -o .env
 # edit .env: set ZEN_SECRET_KEY (python -c "import secrets; print(secrets.token_urlsafe(48))")
 docker compose up -d
 ```

@@ -6,7 +6,7 @@
   "description": "Search Hacker News stories via the Algolia API. Reference plugin demonstrating the Zen SDK.",
   "author": "The Zen Authors",
   "license": "MIT",
-  "homepage": "https://github.com/zensearch/zen/tree/main/examples/plugins/hackernews",
+  "homepage": "https://github.com/cmerk2021/zensearch/tree/main/examples/plugins/hackernews",
   "permissions": ["search_providers", "bangs"],
   "requires": [],
   "min_zen_version": "0.9.0",

@@ -80,6 +80,7 @@ async def test_settings_secret_encryption(app, db_session):
 
 async def test_scheduler_runs_tasks_and_isolates_failures(app):
     import asyncio
+    import time
 
     from zen.workers.scheduler import Scheduler
 
@@ -96,8 +97,15 @@ async def test_scheduler_runs_tasks_and_isolates_failures(app):
     scheduler.register("good", good_task, interval_seconds=0.05, jitter_seconds=0.01, run_at_start=True)
     scheduler.register("bad", bad_task, interval_seconds=0.05, jitter_seconds=0.01, run_at_start=True)
     await scheduler.start()
-    await asyncio.sleep(0.4)
-    await scheduler.stop()
+    try:
+        # Poll instead of a fixed sleep: CI runners are slow and exception
+        # logging is expensive, so a wall-clock window flakes. The deadline is
+        # generous; the happy path exits in well under a second.
+        deadline = time.monotonic() + 15.0
+        while time.monotonic() < deadline and not (runs["good"] >= 2 and runs["bad"] >= 2):
+            await asyncio.sleep(0.05)
+    finally:
+        await scheduler.stop()
 
     assert runs["good"] >= 2, "good task should run repeatedly"
     assert runs["bad"] >= 2, "failing task must not kill its loop"

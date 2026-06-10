@@ -9,7 +9,7 @@ name: zen
 
 services:
   zen-server:
-    image: ghcr.io/zensearch/zen-server:latest
+    image: ghcr.io/cmerk2021/zen-server:latest
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.backend
@@ -23,7 +23,7 @@ services:
     networks: [zen]
 
   zen-web:
-    image: ghcr.io/zensearch/zen-web:latest
+    image: ghcr.io/cmerk2021/zen-web:latest
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.frontend

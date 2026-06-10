@@ -141,7 +141,7 @@ spec:
         fsGroup: 1000
       initContainers:
         - name: migrate
-          image: ghcr.io/zensearch/zen-server:latest
+          image: ghcr.io/cmerk2021/zen-server:latest
           command: ["zen", "db", "upgrade"]
           envFrom:
             - configMapRef: { name: zen-config }
@@ -156,7 +156,7 @@ spec:
               value: postgresql+asyncpg://zen:$(POSTGRES_PASSWORD)@postgres:5432/zen
       containers:
         - name: zen-server
-          image: ghcr.io/zensearch/zen-server:latest
+          image: ghcr.io/cmerk2021/zen-server:latest
           envFrom:
             - configMapRef: { name: zen-config }
           env:
@@ -227,7 +227,7 @@ spec:
         runAsUser: 1000
       containers:
         - name: zen-web
-          image: ghcr.io/zensearch/zen-web:latest
+          image: ghcr.io/cmerk2021/zen-web:latest
           env:
             - name: ZEN_BACKEND_URL
               value: http://zen-server:8000

@@ -57,8 +57,8 @@ dev = [
 zen = "zen.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/zensearch/zen"
-Documentation = "https://github.com/zensearch/zen/tree/main/docs"
+Homepage = "https://github.com/cmerk2021/zensearch"
+Documentation = "https://github.com/cmerk2021/zensearch/tree/main/docs"
 
 [tool.hatch.version]
 path = "zen/version.py"

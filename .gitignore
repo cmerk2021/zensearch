@@ -39,7 +39,7 @@ Thumbs.db
 .idea/
 *.swp
 
-# --- Zen runtime data ---
+# --- also  runtime data ---
 data/
 zen-data/
 plugins-data/

@@ -117,7 +117,7 @@ async def test_tags_hierarchy_and_assignment(user_client):
 async def test_collections_manual_and_smart(user_client):
     bookmark = (
         await user_client.post(
-            "/api/v1/bookmarks", json={"url": "https://github.com/zensearch/zen"}
+            "/api/v1/bookmarks", json={"url": "https://github.com/cmerk2021/zensearch"}
         )
     ).json()
     manual = (

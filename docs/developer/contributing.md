@@ -5,7 +5,7 @@ Thanks for considering a contribution. This guide gets you productive fast.
 ## Development setup
 
 ```bash
-git clone https://github.com/zensearch/zen && cd zen
+git clone https://github.com/cmerk2021/zensearch && cd zensearch
 
 # Backend
 cd backend

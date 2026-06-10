@@ -11,7 +11,7 @@ RUN pip wheel --wheel-dir /wheels ".[postgres]"
 FROM python:3.12-slim AS runtime
 LABEL org.opencontainers.image.title="Zen Server" \
       org.opencontainers.image.description="Self-hosted research and knowledge discovery platform" \
-      org.opencontainers.image.source="https://github.com/zensearch/zen" \
+      org.opencontainers.image.source="https://github.com/cmerk2021/zensearch" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 
 RUN groupadd -r zen --gid 1000 && useradd -r -g zen --uid 1000 --home /app zen \

@@ -13,8 +13,8 @@ recommended path is Docker Compose.
 
 ```bash
 mkdir zen && cd zen
-curl -fsSLO https://raw.githubusercontent.com/zensearch/zen/main/deploy/compose/docker-compose.yml
-curl -fsSL  https://raw.githubusercontent.com/zensearch/zen/main/deploy/compose/.env.example -o .env
+curl -fsSLO https://raw.githubusercontent.com/cmerk2021/zensearch/main/deploy/compose/docker-compose.yml
+curl -fsSL  https://raw.githubusercontent.com/cmerk2021/zensearch/main/deploy/compose/.env.example -o .env
 
 # Edit .env — set ZEN_SECRET_KEY and POSTGRES_PASSWORD:
 python -c "import secrets; print(secrets.token_urlsafe(48))"   # secret key
@@ -30,7 +30,7 @@ you create the administrator account. That's it.
 For evaluation or a single user on constrained hardware:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/zensearch/zen/main/deploy/compose/docker-compose.minimal.yml
+curl -fsSLO https://raw.githubusercontent.com/cmerk2021/zensearch/main/deploy/compose/docker-compose.minimal.yml
 # set ZEN_SECRET_KEY in .env as above
 docker compose -f docker-compose.minimal.yml up -d
 ```

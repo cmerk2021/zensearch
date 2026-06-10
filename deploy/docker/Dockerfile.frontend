@@ -15,7 +15,7 @@ RUN npm run build
 
 FROM node:22-alpine AS runtime
 LABEL org.opencontainers.image.title="Zen Web" \
-      org.opencontainers.image.source="https://github.com/zensearch/zen" \
+      org.opencontainers.image.source="https://github.com/cmerk2021/zensearch" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
