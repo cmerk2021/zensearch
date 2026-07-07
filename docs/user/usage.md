@@ -52,8 +52,8 @@ Hover a result (or tap on mobile):
 - **Save** — bookmark it, optionally straight into a workspace. Provenance
   (provider + query) is stored with it.
 - **Cite** — copies `Title. URL (accessed date)` to the clipboard.
-- **AI summary** — top of the page; summarizes the result set with citations
-  (only when AI is enabled).
+- **AI summary** — top of the page; summarizes the result set with citations,
+  rendered as Markdown (only when AI is enabled for your account).
 
 ## Workspaces
 
@@ -62,6 +62,10 @@ and notes live together and can be exported as one bundle.
 
 - Create from **Workspaces → New workspace** or the command palette.
 - Search in **Research mode** with a workspace selected to log searches to it.
+  Research mode requires a workspace — pick one from the selector under the
+  search box before searching.
+- Click **Research** on a workspace to jump straight to search with that
+  workspace pre-selected.
 - **Export** produces a zip of Markdown notes + bookmarks + a JSON snapshot.
 - **AI digest** (optional) writes an overview of everything collected.
 
@@ -76,9 +80,12 @@ and notes live together and can be exported as one bundle.
 
 ## Notes
 
-Markdown notes with automatic revision history (restore any previous
+Notes open in a clean **reading view** that renders their Markdown. Press
+**Edit** to switch to the WYSIWYG editor — a formatting toolbar for headings,
+bold/italic, lists, quotes, code and links — then **Save** to return to the
+reading view. Notes keep automatic revision history (restore any previous
 version), pinning, workspace association, tagging, and links to bookmarks or
-other notes. Notes autosave as you type.
+other notes. Content is stored as Markdown.
 
 ## Keyboard shortcuts
 

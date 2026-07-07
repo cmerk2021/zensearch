@@ -7,6 +7,7 @@ export interface User {
   display_name: string;
   role: "admin" | "user" | "readonly";
   is_active: boolean;
+  ai_enabled: boolean;
   auth_source: string;
   created_at: string;
   last_login_at: string | null;

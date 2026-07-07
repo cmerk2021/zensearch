@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ShieldCheck, UserX } from "lucide-react";
+import { Plus, Sparkles, ShieldCheck, UserX } from "lucide-react";
 import { useState } from "react";
 import { api, qs } from "@/lib/api";
 import type { Page, User } from "@/lib/types";
@@ -10,7 +10,7 @@ import { useAuth } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
 import { Badge, Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Label, Select, Switch } from "@/components/ui/input";
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
@@ -20,6 +20,7 @@ export default function AdminUsersPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("user");
+  const [aiEnabled, setAiEnabled] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["admin-users", page],
@@ -27,13 +28,15 @@ export default function AdminUsersPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => api.post("/api/v1/admin/users", { username, password, role }),
+    mutationFn: () =>
+      api.post("/api/v1/admin/users", { username, password, role, ai_enabled: aiEnabled }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setShowCreate(false);
       setUsername("");
       setPassword("");
       setRole("user");
+      setAiEnabled(false);
     },
   });
 
@@ -80,6 +83,22 @@ export default function AdminUsersPage() {
               <option value="user">User</option>
               <option value="readonly">Read-only</option>
             </Select>
+            <label
+              className="flex items-center gap-1.5 text-xs text-muted"
+              title="Allow this user to use AI features"
+            >
+              <Sparkles
+                className={`h-3.5 w-3.5 ${user.ai_enabled ? "text-accent" : "text-muted"}`}
+              />
+              AI
+              <Switch
+                checked={user.ai_enabled}
+                onChange={(value) =>
+                  updateMutation.mutate({ id: user.id, body: { ai_enabled: value } })
+                }
+                label={`AI access for ${user.username}`}
+              />
+            </label>
             <Button
               variant="ghost"
               size="icon"
@@ -160,6 +179,13 @@ export default function AdminUsersPage() {
               <option value="admin">Admin</option>
               <option value="readonly">Read-only</option>
             </Select>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+            <div>
+              <p className="text-sm font-medium">AI access</p>
+              <p className="text-xs text-muted">Disabled by default. Grant to allow AI features.</p>
+            </div>
+            <Switch checked={aiEnabled} onChange={setAiEnabled} label="AI access for new user" />
           </div>
           {createMutation.isError && (
             <p className="text-xs text-danger">{(createMutation.error as Error).message}</p>

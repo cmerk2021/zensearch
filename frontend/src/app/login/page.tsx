@@ -8,6 +8,7 @@ import type { AuthMethods, InstanceInfo } from "@/lib/types";
 import { useAuth } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { ZenLogo } from "@/components/ui/logo";
 
 export default function LoginPage() {
   return (
@@ -63,8 +64,8 @@ function LoginContent() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-xl font-bold text-accent-foreground">
-            禅
+          <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+            <ZenLogo className="h-7 w-7" />
           </span>
           <h1 className="text-xl font-semibold">{instance?.name ?? "Zen"}</h1>
           <p className="mt-1 text-sm text-muted">

@@ -26,16 +26,26 @@ class GoogleProvider(SearchProvider):
 
     BASE = "https://www.google.com/search"
 
+    #: Sending an accepted-consent cookie avoids the EU/interstitial consent
+    #: wall that returns HTTP 200 with a JS-only page (and therefore no
+    #: parseable results) for datacenter IPs.
+    CONSENT_COOKIES = {"CONSENT": "YES+cb", "SOCS": "CAI"}
+
     async def search(self, query: SearchQuery, client: httpx.AsyncClient) -> list[RawResult]:
         params = {
             "q": query.text,
             "num": "20",
             "hl": query.locale or "en",
             "start": str((query.page - 1) * 10),
+            # udm=14 selects the plain "Web" results view, which returns clean
+            # server-rendered HTML instead of the JavaScript-heavy default page.
+            "udm": "14",
         }
         if query.safe_search:
             params["safe"] = "active"
-        response = await resilient_get(client, self.BASE, params=params)
+        response = await resilient_get(
+            client, self.BASE, params=params, cookies=self.CONSENT_COOKIES
+        )
         return self.parse(response.text)
 
     def parse(self, html: str) -> list[RawResult]:
@@ -61,6 +71,29 @@ class GoogleProvider(SearchProvider):
             results.append(
                 RawResult(title=title, url=url, snippet=snippet, position=len(results) + 1)
             )
+        if not results:
+            # Fallback: some layouts wrap the title text directly in the anchor
+            # rather than an <h3>. Recover organic links heuristically.
+            results = self._parse_fallback(tree, seen)
+        return results
+
+    def _parse_fallback(self, tree: HTMLParser, seen: set[str]) -> list[RawResult]:
+        results: list[RawResult] = []
+        for anchor in tree.css("a[href^='/url?'], a[href^='https://']"):
+            href = anchor.attributes.get("href", "") or ""
+            url = self._clean_url(href)
+            if not url or url in seen:
+                continue
+            title = anchor.text(strip=True)
+            if not title or len(title) < 12:
+                continue
+            seen.add(url)
+            snippet = self._find_snippet(anchor)
+            results.append(
+                RawResult(title=title, url=url, snippet=snippet, position=len(results) + 1)
+            )
+            if len(results) >= 20:
+                break
         return results
 
     @staticmethod

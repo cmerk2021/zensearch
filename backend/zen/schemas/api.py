@@ -397,11 +397,13 @@ class AdminUserCreate(BaseModel):
     password: str = Field(min_length=10, max_length=256)
     email: str | None = Field(default=None, max_length=255)
     role: str = Field(default="user", pattern="^(admin|user|readonly)$")
+    ai_enabled: bool = False
 
 
 class AdminUserUpdate(BaseModel):
     role: str | None = Field(default=None, pattern="^(admin|user|readonly)$")
     is_active: bool | None = None
+    ai_enabled: bool | None = None
     password: str | None = Field(default=None, min_length=10, max_length=256)
 
 

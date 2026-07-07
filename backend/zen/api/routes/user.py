@@ -8,7 +8,7 @@ import re
 import httpx
 from fastapi import APIRouter, Depends, Query, Response
 
-from zen.api.deps import DB, CurrentUser, OptionalUser, Writer, rate_limited
+from zen.api.deps import DB, AIUser, CurrentUser, OptionalUser, rate_limited
 from zen.core.cache import get_cache
 from zen.core.exceptions import ValidationFailed
 from zen.schemas.api import (
@@ -95,19 +95,21 @@ async def ai_status(db: DB, user: CurrentUser) -> dict:
     from zen.ai.service import AIService
 
     status = await AIService(db).status()
-    # Users see availability, not configuration details.
-    return {"enabled": status["enabled"], "reachable": status.get("reachable", False)}
+    # Users see availability, not configuration details. AI is available only
+    # when enabled on the instance AND granted to this specific user.
+    enabled = bool(status["enabled"]) and bool(user.ai_enabled)
+    return {"enabled": enabled, "reachable": enabled and status.get("reachable", False)}
 
 
 @ai_router.post("/expand", response_model=list[str])
-async def expand_query(payload: ExpandQueryRequest, user: Writer, db: DB) -> list[str]:
+async def expand_query(payload: ExpandQueryRequest, user: AIUser, db: DB) -> list[str]:
     from zen.ai.service import AIService
 
     return await AIService(db).expand_query(payload.q)
 
 
 @ai_router.post("/summarize", response_model=AITextOut)
-async def summarize(payload: SummarizeRequest, user: Writer, db: DB) -> AITextOut:
+async def summarize(payload: SummarizeRequest, user: AIUser, db: DB) -> AITextOut:
     from zen.ai.service import AIService
 
     results = [
@@ -132,21 +134,21 @@ async def summarize(payload: SummarizeRequest, user: Writer, db: DB) -> AITextOu
 
 
 @ai_router.post("/workspaces/{workspace_id}/digest", response_model=AITextOut)
-async def workspace_digest(workspace_id: str, user: Writer, db: DB) -> AITextOut:
+async def workspace_digest(workspace_id: str, user: AIUser, db: DB) -> AITextOut:
     from zen.ai.service import AIService
 
     return AITextOut(text=await AIService(db).research_digest(workspace_id, user))
 
 
 @ai_router.post("/workspaces/{workspace_id}/report", response_model=AITextOut)
-async def workspace_report(workspace_id: str, user: Writer, db: DB) -> AITextOut:
+async def workspace_report(workspace_id: str, user: AIUser, db: DB) -> AITextOut:
     from zen.ai.service import AIService
 
     return AITextOut(text=await AIService(db).workspace_report(workspace_id, user))
 
 
 @ai_router.post("/workspaces/{workspace_id}/map", response_model=KnowledgeMapOut)
-async def workspace_knowledge_map(workspace_id: str, user: Writer, db: DB) -> KnowledgeMapOut:
+async def workspace_knowledge_map(workspace_id: str, user: AIUser, db: DB) -> KnowledgeMapOut:
     from zen.ai.service import AIService
 
     data = await AIService(db).knowledge_map(workspace_id, user)

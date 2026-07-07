@@ -33,6 +33,7 @@ class User(TimestampMixin, Base):
     display_name: Mapped[str] = mapped_column(String(128), default="")
     role: Mapped[str] = mapped_column(String(16), default=Role.USER.value, index=True)
     is_active: Mapped[bool] = mapped_column(default=True)
+    ai_enabled: Mapped[bool] = mapped_column(default=False)
     auth_source: Mapped[str] = mapped_column(String(16), default=AuthSource.LOCAL.value)
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)

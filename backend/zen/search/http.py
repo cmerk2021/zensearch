@@ -16,9 +16,25 @@ from zen.core.config import get_settings
 
 log = structlog.get_logger(__name__)
 
-ACCEPT_LANGUAGE = "en-US,en;q=0.8"
+ACCEPT_LANGUAGE = "en-US,en;q=0.9"
 
 _TRANSIENT_STATUS = {429, 500, 502, 503, 504}
+
+#: Browser-like headers reduce the chance of receiving bot-detection or
+#: JavaScript-only interstitials that carry a 200 status but no results.
+_BROWSER_HEADERS = {
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "application/json;q=0.9,image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": ACCEPT_LANGUAGE,
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+    "DNT": "1",
+}
 
 
 def build_search_client(timeout: float | None = None) -> httpx.AsyncClient:
@@ -28,8 +44,7 @@ def build_search_client(timeout: float | None = None) -> httpx.AsyncClient:
         timeout=httpx.Timeout(timeout or settings.outbound_timeout_seconds),
         headers={
             "User-Agent": settings.outbound_user_agent,
-            "Accept-Language": ACCEPT_LANGUAGE,
-            "Accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+            **_BROWSER_HEADERS,
         },
         proxy=settings.outbound_proxy or None,
         follow_redirects=True,
@@ -47,10 +62,11 @@ async def resilient_get(
     *,
     params: dict | None = None,
     headers: dict | None = None,
+    cookies: dict | None = None,
     retries: int = 1,
 ) -> httpx.Response:
     return await _resilient_request(
-        client, "GET", url, params=params, headers=headers, retries=retries
+        client, "GET", url, params=params, headers=headers, cookies=cookies, retries=retries
     )
 
 
@@ -60,10 +76,11 @@ async def resilient_post(
     *,
     data: dict | None = None,
     headers: dict | None = None,
+    cookies: dict | None = None,
     retries: int = 1,
 ) -> httpx.Response:
     return await _resilient_request(
-        client, "POST", url, data=data, headers=headers, retries=retries
+        client, "POST", url, data=data, headers=headers, cookies=cookies, retries=retries
     )
 
 
@@ -75,13 +92,14 @@ async def _resilient_request(
     params: dict | None = None,
     data: dict | None = None,
     headers: dict | None = None,
+    cookies: dict | None = None,
     retries: int = 1,
 ) -> httpx.Response:
     attempt = 0
     while True:
         try:
             response = await client.request(
-                method, url, params=params, data=data, headers=headers
+                method, url, params=params, data=data, headers=headers, cookies=cookies
             )
             if response.status_code in _TRANSIENT_STATUS:
                 raise TransientProviderFailure(f"upstream status {response.status_code}")

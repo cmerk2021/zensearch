@@ -281,6 +281,7 @@ async def create_user(
         password=payload.password,
         email=payload.email,
         role=payload.role,
+        ai_enabled=payload.ai_enabled,
     )
     await audit.record(
         db,
@@ -304,6 +305,8 @@ async def update_user(
         user = await service.set_role(user_id, payload.role, acting_admin=admin)
     if payload.is_active is not None:
         user = await service.set_active(user_id, payload.is_active, acting_admin=admin)
+    if payload.ai_enabled is not None:
+        user = await service.set_ai_enabled(user_id, payload.ai_enabled)
     if payload.password is not None:
         user = await service.admin_set_password(user_id, payload.password)
     await audit.record(

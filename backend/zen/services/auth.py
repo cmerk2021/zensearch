@@ -85,6 +85,7 @@ class AuthService:
         display_name: str = "",
         auth_source: str = AuthSource.LOCAL.value,
         external_id: str | None = None,
+        ai_enabled: bool = False,
     ) -> User:
         username = username.strip().lower()
         if not username or len(username) < 2 or len(username) > 64:
@@ -112,6 +113,7 @@ class AuthService:
             role=role,
             auth_source=auth_source,
             external_id=external_id,
+            ai_enabled=ai_enabled,
         )
         user.preferences = UserPreferences()
         self.db.add(user)

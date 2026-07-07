@@ -4,7 +4,7 @@ import { Eye, FolderOpen, Search as SearchIcon, Target, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, qs } from "@/lib/api";
-import type { SearchMode, SearchProfile } from "@/lib/types";
+import type { SearchMode, SearchProfile, Workspace } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useSearchUI } from "@/stores/search";
 import { useQuery } from "@tanstack/react-query";
@@ -26,7 +26,7 @@ export function SearchBox({
   size?: "lg" | "md";
 }) {
   const router = useRouter();
-  const { mode, setMode, profileSlug, setProfile, workspaceId } = useSearchUI();
+  const { mode, setMode, profileSlug, setProfile, workspaceId, setWorkspace } = useSearchUI();
   const [query, setQuery] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -38,6 +38,13 @@ export function SearchBox({
     queryKey: ["profiles"],
     queryFn: () => api.get<SearchProfile[]>("/api/v1/profiles"),
     staleTime: 300_000,
+  });
+
+  const { data: workspaces } = useQuery({
+    queryKey: ["workspaces"],
+    queryFn: () => api.get<Workspace[]>("/api/v1/workspaces"),
+    staleTime: 300_000,
+    enabled: mode === "research",
   });
 
   useEffect(() => {
@@ -76,6 +83,8 @@ export function SearchBox({
   function submit(text?: string) {
     const value = (text ?? query).trim();
     if (!value) return;
+    // Research mode logs into a workspace, so one must be selected first.
+    if (mode === "research" && !workspaceId) return;
     setShowSuggestions(false);
     router.push(
       `/search${qs({
@@ -211,6 +220,35 @@ export function SearchBox({
           <Eye className="h-3.5 w-3.5" />
           Privacy mode: nothing about this search will be stored.
         </p>
+      )}
+
+      {mode === "research" && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <FolderOpen className="h-3.5 w-3.5" />
+            Log to workspace
+          </label>
+          <select
+            value={workspaceId ?? ""}
+            onChange={(event) => setWorkspace(event.target.value || null)}
+            aria-label="Research workspace"
+            className="h-8 rounded-full border border-border bg-surface px-3 text-xs text-foreground focus-ring"
+          >
+            <option value="">Select a workspace…</option>
+            {workspaces?.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </select>
+          {!workspaceId && (
+            <span className="text-xs text-warning">
+              {workspaces && workspaces.length === 0
+                ? "Create a workspace first to use research mode."
+                : "Select a workspace to capture this search."}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

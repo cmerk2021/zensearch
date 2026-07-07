@@ -4,6 +4,36 @@ All notable changes to Zen are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and Zen adheres to
 [semantic versioning](https://semver.org/).
 
+## [0.11.0] — 2026-07-07
+
+### Added
+
+- **Per-user AI access.** AI is now gated per account in addition to the
+  instance-level switch. New accounts have AI **disabled by default**; admins
+  grant or revoke it per user in **Admin → Users**. AI endpoints return `403`
+  for users without access.
+- **Markdown-rendered AI output.** Search summaries, workspace digests and
+  reports now render the models' Markdown (headings, lists, tables, code,
+  links) instead of raw text.
+- **WYSIWYG notes.** Notes open in a reading view and provide an **Edit**
+  button that opens a rich-text (TipTap) editor styled to match the app;
+  **Save** returns to the reading view. Content is still stored as Markdown.
+- **Research-mode workspace selector.** Research mode now requires choosing a
+  workspace to log into, surfaced as a selector under the search box. A
+  workspace's **Research** button pre-selects that workspace.
+- New brand mark: an SVG ensō logo (with a matching favicon) replaces the
+  placeholder kanji glyph across the sidebar, login and setup screens.
+
+### Changed
+
+- **Web scraping hardened.** Provider requests now send browser-like headers;
+  Google scraping sends an accepted-consent cookie and uses the plain web
+  results view (`udm=14`), with a fallback parser for markup changes — fixing
+  cases where upstream returned `200 OK` with an unparseable, JS-only page.
+- **Faster searches.** Provider fetching now overlaps with ranking-context
+  database queries, and a quorum-based tail trim cancels the slowest providers
+  once most have responded, bounding total search time.
+
 ## [0.9.0] — 2026-06-09
 
 First public release candidate.

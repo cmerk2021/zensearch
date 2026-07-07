@@ -14,8 +14,10 @@ Flow (ADR-0009, modes, profiles):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
+import math
 import time
 
 import structlog
@@ -57,6 +59,16 @@ log = structlog.get_logger(__name__)
 RESULT_CACHE_TTL = 300
 PERSONAL_SIGNALS_TTL = 300
 MAX_RESULTS = 50
+
+#: Once this fraction of providers has returned, only wait a short grace period
+#: for the remainder before trimming the slow tail. This bounds tail latency so
+#: one slow upstream cannot hold the whole search hostage.
+PROVIDER_QUORUM_FRACTION = 0.6
+PROVIDER_TAIL_GRACE_SECONDS = 2.0
+
+
+class _TailTrimmed(Exception):
+    """Marker: a provider was cancelled because it exceeded the tail deadline."""
 
 
 class SearchEngine:
@@ -120,19 +132,24 @@ class SearchEngine:
                 except (ValueError, KeyError, TypeError):
                     pass
 
-        # 5. Execute --------------------------------------------------------
-        statuses, raw_results = await self._run_providers(
-            selected, provider_configs, query_text, page
+        # 5-7. Fetch providers (network-bound) concurrently with building the
+        # ranking context (DB-bound). They are independent — the provider tasks
+        # never touch the DB session — so overlapping them removes the DB round
+        # trips from the critical path. ``settings_service`` and the ranking
+        # context share ``self.db``; the provider branch does not, keeping the
+        # single AsyncSession free of concurrent use.
+        ranker_name = await self.settings_service.get("search.ranker", "rrf")
+        (statuses, raw_results), ctx = await asyncio.gather(
+            self._run_providers(selected, provider_configs, query_text, page),
+            self._build_ranking_context(
+                query_text, user, profile, provider_configs, mode.use_personalization
+            ),
         )
 
         # 6. Pipeline -------------------------------------------------------
         results = process(raw_results)
 
         # 7. Ranking --------------------------------------------------------
-        ctx = await self._build_ranking_context(
-            query_text, user, profile, provider_configs, mode.use_personalization
-        )
-        ranker_name = await self.settings_service.get("search.ranker", "rrf")
         results = get_ranker(ranker_name).rank(results, ctx)
 
         # 8. Mode filters ----------------------------------------------------
@@ -265,10 +282,27 @@ class SearchEngine:
                     elapsed = int((time.perf_counter() - start) * 1000)
                     return slug, exc, elapsed
 
-            outcomes = await asyncio.gather(*(run_one(s, t) for s, t in runnable))
+            outcomes = await self._collect_with_quorum(
+                {
+                    asyncio.create_task(run_one(slug, timeout)): slug
+                    for slug, timeout in runnable
+                }
+            )
 
         for slug, outcome, elapsed in outcomes:
             cls = registry[slug]
+            if isinstance(outcome, _TailTrimmed):
+                statuses.append(
+                    ProviderStatus(
+                        slug=slug,
+                        name=cls.name,
+                        ok=False,
+                        skipped=True,
+                        skip_reason="slow response (tail-trimmed)",
+                        duration_ms=elapsed,
+                    )
+                )
+                continue
             if isinstance(outcome, Exception):
                 error = f"{type(outcome).__name__}: {outcome}"[:300]
                 statuses.append(
@@ -294,6 +328,48 @@ class SearchEngine:
             metrics.PROVIDER_REQUESTS.labels(provider=slug, outcome="ok").inc()
             metrics.PROVIDER_LATENCY.labels(provider=slug).observe(elapsed / 1000)
         return statuses, raw_results
+
+    async def _collect_with_quorum(
+        self, tasks: dict[asyncio.Task, str]
+    ) -> list[tuple[str, list[RawResult] | Exception, int]]:
+        """Gather provider results, trimming the slow tail once a quorum returns.
+
+        Providers all run concurrently. As soon as ``PROVIDER_QUORUM_FRACTION`` of
+        them have completed, any still-running providers get only
+        ``PROVIDER_TAIL_GRACE_SECONDS`` more before being cancelled. Cancelled
+        providers are reported as skipped (not failed) so the tail trimming does
+        not pollute circuit-breaker health state.
+        """
+        pending: set[asyncio.Task] = set(tasks)
+        outcomes: list[tuple[str, list[RawResult] | Exception, int]] = []
+        total = len(tasks)
+        quorum = max(1, math.ceil(total * PROVIDER_QUORUM_FRACTION))
+        loop = asyncio.get_event_loop()
+        deadline: float | None = None
+        completed = 0
+
+        while pending:
+            timeout = None
+            if deadline is not None:
+                timeout = max(0.0, deadline - loop.time())
+            done, pending = await asyncio.wait(
+                pending, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
+            )
+            if not done:
+                # Tail grace elapsed: cancel the stragglers.
+                for task in pending:
+                    task.cancel()
+                for task in pending:
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
+                        await task
+                    outcomes.append((tasks[task], _TailTrimmed(), 0))
+                break
+            for task in done:
+                outcomes.append(task.result())
+            completed += len(done)
+            if deadline is None and completed >= quorum and pending:
+                deadline = loop.time() + PROVIDER_TAIL_GRACE_SECONDS
+        return outcomes
 
     # ------------------------------------------------------------------
     # Ranking context

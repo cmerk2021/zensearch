@@ -67,6 +67,12 @@ class UserService:
         await self.db.commit()
         return user
 
+    async def set_ai_enabled(self, user_id: str, enabled: bool) -> User:
+        user = await self.get(user_id)
+        user.ai_enabled = enabled
+        await self.db.commit()
+        return user
+
     async def admin_set_password(self, user_id: str, password: str) -> User:
         user = await self.get(user_id)
         problems = validate_password_strength(password)

@@ -29,7 +29,23 @@ digests, long-form research reports, and knowledge maps.
 > If Zen runs in Docker and Ollama on the host, use
 > `http://host.docker.internal:11434` (add `extra_hosts:
 > ["host.docker.internal:host-gateway"]` on Linux).
+## Per-user access
 
+AI is gated in two layers:
+
+1. **Instance** — an admin enables AI and configures a backend in **Admin → AI**.
+2. **Per user** — each account must additionally be granted AI access. New
+   accounts have AI **disabled by default**.
+
+Grant or revoke access in **Admin → Users** with the *AI* switch on each user
+(or the *AI access* toggle when creating a user). When a user lacks access,
+AI actions are hidden in their UI and the API returns `403`.
+
+## Markdown output
+
+The models emit Markdown. Zen renders every AI output box (search summaries,
+workspace digests and reports) as formatted Markdown — headings, lists, tables,
+inline code and links — rather than raw text.
 ## Privacy notes
 
 - With local backends (Ollama/LM Studio), no search data ever leaves your
@@ -50,6 +66,8 @@ digests, long-form research reports, and knowledge maps.
 ## Troubleshooting
 
 - **"AI features are disabled"** — enable in Admin → AI.
+- **"not enabled for your account"** — an admin must grant you AI access in
+  Admin → Users.
 - **"unreachable"** — check the base URL from *inside* the Zen container:
   `docker compose exec zen-server curl http://your-ollama:11434/api/version`.
 - **Slow responses** — increase `ai.timeout_seconds` in Admin → Settings, use

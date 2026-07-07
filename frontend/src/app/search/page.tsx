@@ -13,6 +13,7 @@ import { ResultCard } from "@/components/search/result-card";
 import { SearchBox } from "@/components/search/search-box";
 import { Badge, Spinner } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/ui/markdown";
 
 export default function SearchPage() {
   return (
@@ -38,7 +39,7 @@ function SearchContent() {
   const profile = params.get("profile");
   const workspaceId = params.get("workspace_id");
   const page = Number(params.get("page") ?? "1");
-  const { setMode, setProfile } = useSearchUI();
+  const { setMode, setProfile, setWorkspace } = useSearchUI();
   const user = useAuth((state) => state.user);
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
@@ -46,7 +47,10 @@ function SearchContent() {
   useEffect(() => {
     setMode(mode);
     setProfile(profile);
-  }, [mode, profile, setMode, setProfile]);
+    // Auto-select the workspace when arriving from a workspace's Research button
+    // so re-submitting from the search box keeps logging to that workspace.
+    if (mode === "research") setWorkspace(workspaceId);
+  }, [mode, profile, workspaceId, setMode, setProfile, setWorkspace]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["search", query, mode, profile, workspaceId, page],
@@ -159,7 +163,7 @@ function SearchContent() {
               <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-accent">
                 <Sparkles className="h-3.5 w-3.5" /> AI summary
               </p>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{summary}</p>
+              <Markdown content={summary} />
             </div>
           )}
 

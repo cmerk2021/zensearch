@@ -82,3 +82,96 @@ body {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background;
   }
 }
+
+/* Rich-text (TipTap) editor content, styled to match the app. */
+.zen-prose {
+  color: rgb(var(--foreground));
+  font-size: 0.925rem;
+  line-height: 1.7;
+}
+.zen-prose:focus {
+  outline: none;
+}
+.zen-prose > :first-child {
+  margin-top: 0;
+}
+.zen-prose h1 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 1.2rem 0 0.6rem;
+}
+.zen-prose h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 1.1rem 0 0.5rem;
+}
+.zen-prose h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1rem 0 0.4rem;
+}
+.zen-prose p {
+  margin: 0.6rem 0;
+}
+.zen-prose a {
+  color: rgb(var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.zen-prose ul,
+.zen-prose ol {
+  margin: 0.6rem 0;
+  padding-left: 1.4rem;
+}
+.zen-prose ul {
+  list-style: disc;
+}
+.zen-prose ol {
+  list-style: decimal;
+}
+.zen-prose li {
+  margin: 0.2rem 0;
+}
+.zen-prose blockquote {
+  border-left: 2px solid rgb(var(--accent) / 0.4);
+  padding-left: 0.85rem;
+  color: rgb(var(--muted));
+  font-style: italic;
+  margin: 0.7rem 0;
+}
+.zen-prose code {
+  background: rgb(var(--surface-2));
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+}
+.zen-prose pre {
+  background: rgb(var(--surface-2));
+  border: 1px solid rgb(var(--border));
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  overflow-x: auto;
+  margin: 0.7rem 0;
+}
+.zen-prose pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.8rem;
+}
+.zen-prose hr {
+  border: none;
+  border-top: 1px solid rgb(var(--border));
+  margin: 1.2rem 0;
+}
+.zen-prose strong {
+  font-weight: 600;
+}
+/* Placeholder for the empty editor (TipTap Placeholder extension). */
+.zen-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: rgb(var(--muted));
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

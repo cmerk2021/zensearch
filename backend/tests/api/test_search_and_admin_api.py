@@ -326,6 +326,57 @@ async def test_admin_user_management_safeguards(admin_client):
     assert demoted.json()["role"] == "user"
 
 
+async def test_per_user_ai_access(app, user_client, admin_client, db_session):
+    from zen.services.settings import SettingsService
+
+    # Enable AI on the instance and configure a model.
+    settings = SettingsService(db_session)
+    await settings.set_many({"ai.enabled": True, "ai.model": "llama3.2"})
+    SettingsService.invalidate_local()
+
+    # New users have AI disabled by default.
+    me = (await user_client.get("/api/v1/me")).json()
+    assert me["ai_enabled"] is False
+
+    status = (await user_client.get("/api/v1/ai/status")).json()
+    assert status["enabled"] is False
+
+    # AI capabilities are rejected while access is not granted.
+    denied = await user_client.post(
+        "/api/v1/ai/summarize", json={"q": "python", "results": []}
+    )
+    assert denied.status_code == 403
+
+    # Admin grants AI access to the user.
+    granted = await admin_client.patch(
+        f"/api/v1/admin/users/{me['id']}", json={"ai_enabled": True}
+    )
+    assert granted.status_code == 200
+    assert granted.json()["ai_enabled"] is True
+
+    # The user now sees AI as available.
+    status2 = (await user_client.get("/api/v1/ai/status")).json()
+    assert status2["enabled"] is True
+
+
+async def test_admin_created_user_defaults_ai_disabled(admin_client):
+    created = (
+        await admin_client.post(
+            "/api/v1/admin/users",
+            json={"username": "granted", "password": "a-long-password-12", "ai_enabled": True},
+        )
+    ).json()
+    assert created["ai_enabled"] is True
+
+    default_off = (
+        await admin_client.post(
+            "/api/v1/admin/users",
+            json={"username": "plain", "password": "a-long-password-12"},
+        )
+    ).json()
+    assert default_off["ai_enabled"] is False
+
+
 async def test_admin_audit_log_populated(admin_client):
     await admin_client.put(
         "/api/v1/admin/settings", json={"values": {"instance.tagline": "x"}}

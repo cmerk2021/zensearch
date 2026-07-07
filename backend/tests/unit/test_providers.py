@@ -67,6 +67,21 @@ def test_google_parser():
     assert results[1].url == "https://github.com/fastapi/fastapi"
 
 
+def test_google_fallback_parser_when_no_h3():
+    # Layouts without <h3> titles fall back to organic anchor recovery; Google's
+    # own internal links are still filtered out.
+    html = """
+    <html><body>
+      <a href="/url?q=https://example.org/guide&sa=U">A helpful guide to the topic</a>
+      <a href="https://www.google.com/preferences">Settings</a>
+    </body></html>
+    """
+    results = GoogleProvider().parse(html)
+    assert len(results) == 1
+    assert results[0].url == "https://example.org/guide"
+    assert results[0].title == "A helpful guide to the topic"
+
+
 def test_bing_parser():
     results = BingProvider().parse(BING_HTML)
     assert len(results) == 2

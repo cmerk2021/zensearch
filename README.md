@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>禅</strong>
+  <img src="docs/assets/logo.svg" alt="Zen" width="72" height="72" />
 </p>
 
 <h1 align="center">Zen</h1>

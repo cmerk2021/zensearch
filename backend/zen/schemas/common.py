@@ -32,6 +32,7 @@ class UserOut(ORMModel):
     display_name: str
     role: str
     is_active: bool
+    ai_enabled: bool
     auth_source: str
     created_at: datetime
     last_login_at: datetime | None

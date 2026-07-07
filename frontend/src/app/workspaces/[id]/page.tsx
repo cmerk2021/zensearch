@@ -21,6 +21,7 @@ import { timeAgo } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge, Card, CardContent, CardHeader, CardTitle, Spinner } from "@/components/ui/card";
+import { Markdown } from "@/components/ui/markdown";
 
 interface Overview {
   workspace: Workspace;
@@ -161,7 +162,7 @@ function WorkspaceDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="whitespace-pre-wrap text-sm leading-relaxed">{digest}</div>
+            <Markdown content={digest} />
           </CardContent>
         </Card>
       )}

@@ -21,6 +21,7 @@ import { useAuth } from "@/stores/auth";
 import { useSearchUI } from "@/stores/search";
 import { CommandPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
+import { ZenLogo } from "@/components/ui/logo";
 
 const NAV = [
   { href: "/", label: "Search", icon: Search, exact: true },
@@ -179,11 +180,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function ZenMark() {
   return (
-    <span
-      aria-hidden
-      className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-foreground"
-    >
-      禅
+    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+      <ZenLogo className="h-5 w-5" />
     </span>
   );
 }

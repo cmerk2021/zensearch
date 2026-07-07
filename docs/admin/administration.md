@@ -13,7 +13,7 @@ apply to all users immediately, no restarts needed.
 | Providers | Enable/disable, weights, timeouts, API keys, live test |
 | Profiles | Create/edit search profiles users select from |
 | Ranking | Instance-wide domain rules (boost/lower/pin/block) |
-| Users | Create accounts, roles, disable, reset passwords |
+| Users | Create accounts, roles, disable, reset passwords, grant AI access |
 | Plugins | Repositories, install/update/rollback/remove |
 | AI | Backend, model, key, connectivity test |
 | Settings | Branding, auth policy, privacy, search defaults |
@@ -82,6 +82,11 @@ Requires the `ldap` extra in custom images (included in official images).
 
 The instance always keeps at least one active admin; the API refuses changes
 that would violate that.
+
+### AI access
+AI is disabled per account by default. In **Users**, toggle **AI** on a user
+(or the *AI access* switch when creating one) to let them use AI features. The
+instance-level AI switch (Admin → AI) must also be on. Both layers are required.
 
 ## Privacy controls
 

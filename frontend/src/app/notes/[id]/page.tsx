@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, History, Pin, Trash2 } from "lucide-react";
+import { Check, History, Pencil, Pin, Trash2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Note } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
@@ -11,7 +11,9 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Textarea } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
+import { Markdown } from "@/components/ui/markdown";
+import { RichEditor } from "@/components/ui/rich-editor";
 
 interface Revision {
   id: string;
@@ -33,13 +35,12 @@ function NoteEditor() {
   const queryClient = useQueryClient();
   const id = params.id;
 
+  const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [showRevisions, setShowRevisions] = useState(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const { data: note, isLoading } = useQuery({
     queryKey: ["note", id],
@@ -56,25 +57,26 @@ function NoteEditor() {
     if (note) {
       setTitle(note.title);
       setContent(note.content);
-      setDirty(false);
     }
   }, [note?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounced autosave.
-  useEffect(() => {
-    if (!dirty) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => void save(), 1200);
-    return () => saveTimer.current && clearTimeout(saveTimer.current);
-  }, [title, content, dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+  function startEditing() {
+    if (note) {
+      setTitle(note.title);
+      setContent(note.content);
+    }
+    setEditing(true);
+  }
 
   async function save() {
     setSaving(true);
     try {
       await api.patch(`/api/v1/notes/${id}`, { title, content });
-      setDirty(false);
       setSavedAt(Date.now());
+      await queryClient.invalidateQueries({ queryKey: ["note", id] });
       void queryClient.invalidateQueries({ queryKey: ["notes"] });
+      void queryClient.invalidateQueries({ queryKey: ["note-revisions", id] });
+      setEditing(false);
     } finally {
       setSaving(false);
     }
@@ -97,6 +99,7 @@ function NoteEditor() {
       setTitle(restored.title);
       setContent(restored.content);
       setShowRevisions(false);
+      setEditing(false);
       void queryClient.invalidateQueries({ queryKey: ["note", id] });
     },
   });
@@ -112,18 +115,23 @@ function NoteEditor() {
   return (
     <div className="mx-auto flex h-[calc(100vh-3.5rem)] w-full max-w-3xl flex-col px-4 py-6 md:h-screen">
       <div className="mb-3 flex items-center gap-2">
-        <Input
-          value={title}
-          onChange={(event) => {
-            setTitle(event.target.value);
-            setDirty(true);
-          }}
-          placeholder="Note title"
-          className="border-none bg-transparent px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
-          aria-label="Note title"
-        />
+        {editing ? (
+          <Input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Note title"
+            className="border-none bg-transparent px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
+            aria-label="Note title"
+          />
+        ) : (
+          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">
+            {note.title || "Untitled note"}
+          </h1>
+        )}
         <span className="shrink-0 text-xs text-muted">
-          {saving ? "Saving…" : dirty ? "Unsaved" : savedAt ? (
+          {saving ? (
+            "Saving…"
+          ) : savedAt && !editing ? (
             <span className="inline-flex items-center gap-1 text-success">
               <Check className="h-3 w-3" /> Saved
             </span>
@@ -131,6 +139,15 @@ function NoteEditor() {
             `Updated ${timeAgo(note.updated_at)}`
           )}
         </span>
+        {editing ? (
+          <Button size="sm" onClick={() => void save()} disabled={saving}>
+            <Check className="h-4 w-4" /> Save
+          </Button>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={startEditing}>
+            <Pencil className="h-4 w-4" /> Edit
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -159,16 +176,20 @@ function NoteEditor() {
         </Button>
       </div>
 
-      <Textarea
-        value={content}
-        onChange={(event) => {
-          setContent(event.target.value);
-          setDirty(true);
-        }}
-        placeholder="Write in Markdown…"
-        className="flex-1 resize-none border-none bg-transparent px-0 font-mono text-sm leading-relaxed shadow-none focus-visible:ring-0"
-        aria-label="Note content"
-      />
+      {editing ? (
+        <RichEditor content={content} onChange={setContent} className="flex-1 overflow-hidden" />
+      ) : note.content.trim() ? (
+        <div className="flex-1 overflow-y-auto pb-8">
+          <Markdown content={note.content} />
+        </div>
+      ) : (
+        <button
+          onClick={startEditing}
+          className="flex flex-1 items-start justify-start pt-2 text-left text-sm text-muted hover:text-foreground"
+        >
+          This note is empty. Click Edit to start writing…
+        </button>
+      )}
 
       <Dialog
         open={showRevisions}

@@ -112,3 +112,36 @@ def test_process_full_pipeline():
     first = next(r for r in results if r.domain == "a.com")
     assert set(first.providers) == {"google", "wikipedia"}
     assert first.result_type == ResultType.REFERENCE
+
+
+async def test_collect_with_quorum_trims_slow_tail(monkeypatch):
+    """Once a quorum of providers returns, slow stragglers are trimmed."""
+    import asyncio
+
+    from zen.search import engine as engine_mod
+
+    monkeypatch.setattr(engine_mod, "PROVIDER_TAIL_GRACE_SECONDS", 0.05)
+    eng = engine_mod.SearchEngine(db=None)
+
+    async def fast(slug: str):
+        return slug, [], 1
+
+    async def slow(slug: str):
+        await asyncio.sleep(5)
+        return slug, [], 1
+
+    tasks = {
+        asyncio.create_task(fast("a")): "a",
+        asyncio.create_task(fast("b")): "b",
+        asyncio.create_task(fast("c")): "c",
+        asyncio.create_task(slow("d")): "d",
+        asyncio.create_task(slow("e")): "e",
+    }
+    outcomes = await eng._collect_with_quorum(tasks)
+
+    by_slug = {slug: outcome for slug, outcome, _ in outcomes}
+    assert by_slug["a"] == []
+    assert by_slug["b"] == []
+    assert by_slug["c"] == []
+    assert isinstance(by_slug["d"], engine_mod._TailTrimmed)
+    assert isinstance(by_slug["e"], engine_mod._TailTrimmed)

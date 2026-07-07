@@ -102,8 +102,17 @@ async def require_admin(user: CurrentUser) -> User:
     return user
 
 
+async def require_ai_user(user: CurrentUser) -> User:
+    if not user.can_write:
+        raise PermissionDeniedError("Read-only accounts cannot use AI features.")
+    if not user.ai_enabled:
+        raise PermissionDeniedError("AI features are not enabled for your account.")
+    return user
+
+
 Writer = Annotated[User, Depends(require_writer)]
 Admin = Annotated[User, Depends(require_admin)]
+AIUser = Annotated[User, Depends(require_ai_user)]
 
 
 def rate_limited(bucket: str):
