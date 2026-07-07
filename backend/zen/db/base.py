@@ -7,7 +7,10 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import JSON, DateTime, event
+import structlog
+from sqlalchemy import JSON, Column, DateTime, event, text
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -15,6 +18,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+log = structlog.get_logger(__name__)
 
 
 def utcnow() -> datetime:
@@ -122,10 +127,73 @@ async def create_all() -> None:
     """Create the full schema directly (dev/test/SQLite path).
 
     Production PostgreSQL deployments use Alembic migrations; this exists so
-    a zero-dependency evaluation install works out of the box.
+    a zero-dependency evaluation install works out of the box. After creating
+    any missing tables it reconciles additive columns so in-place upgrades
+    (which SQLAlchemy's ``create_all`` alone does not handle) pick up newly
+    introduced model columns.
     """
     from zen.db import models  # noqa: F401  (ensure model registration)
 
     engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_reconcile_additive_columns)
+
+
+def _reconcile_additive_columns(sync_conn: Connection) -> None:
+    """Add columns introduced after a table was first created (in-place upgrades).
+
+    ``metadata.create_all`` only creates missing *tables*; it never alters an
+    existing table. SQLite / homelab installs upgrade in place, so a model
+    column added in a new release would otherwise be missing until the database
+    is recreated (surfacing as ``no such column`` errors). This performs
+    additive, idempotent ``ALTER TABLE ... ADD COLUMN`` for any missing column.
+
+    Column removals and renames are intentionally not handled — those require
+    Alembic (which PostgreSQL production deployments use).
+    """
+    inspector = sa_inspect(sync_conn)
+    dialect = sync_conn.dialect
+    existing_tables = set(inspector.get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue  # freshly created by create_all — already complete
+        present = {col["name"] for col in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name in present:
+                continue
+            sync_conn.execute(text(_add_column_ddl(dialect, table.name, column)))
+            log.info("db.column_added", table=table.name, column=column.name)
+
+
+def _add_column_ddl(dialect, table_name: str, column: Column) -> str:
+    coltype = column.type.compile(dialect=dialect)
+    ddl = f'ALTER TABLE "{table_name}" ADD COLUMN "{column.name}" {coltype}'
+    default_sql = _column_default_sql(column)
+    if default_sql is not None:
+        ddl += f" DEFAULT {default_sql}"
+    if not column.nullable:
+        ddl += " NOT NULL"
+    return ddl
+
+
+def _column_default_sql(column: Column) -> str | None:
+    """A constant DEFAULT expression for an added column.
+
+    Databases (notably SQLite) reject adding a NOT NULL column without a
+    default, so a safe zero-value is derived from the column type when no
+    explicit ``server_default`` is set.
+    """
+    server_default = column.server_default
+    if server_default is not None and hasattr(server_default, "arg"):
+        arg = server_default.arg
+        return str(getattr(arg, "text", arg))
+    if column.nullable:
+        return None
+    try:
+        py_type = column.type.python_type
+    except (NotImplementedError, AttributeError):
+        py_type = None
+    if py_type is bool or py_type in (int, float):
+        return "0"
+    return "''"

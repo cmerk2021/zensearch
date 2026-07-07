@@ -34,6 +34,13 @@ All notable changes to Zen are documented here. The format follows
   database queries, and a quorum-based tail trim cancels the slowest providers
   once most have responded, bounding total search time.
 
+### Fixed
+
+- **In-place SQLite upgrades.** On startup the self-managed schema path now
+  reconciles additive columns, so existing SQLite installs pick up newly added
+  model columns (e.g. `users.ai_enabled`) on restart instead of failing with
+  `no such column`. PostgreSQL deployments continue to use Alembic.
+
 ## [0.9.0] — 2026-06-09
 
 First public release candidate.
